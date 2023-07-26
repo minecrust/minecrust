@@ -3,7 +3,7 @@ use bytes::{Buf, BytesMut};
 use serde::{Deserialize, Deserializer};
 use serde::de::Visitor;
 use crate::error::ProtocolError;
-use crate::{read_bool, read_byte};
+use crate::{read_bool, read_byte, read_double, read_float, read_int, read_long, read_short, read_string, read_unsigned_byte, read_unsigned_short};
 
 impl serde::de::Error for ProtocolError {
     fn custom<T>(msg: T) -> Self where T: Display {
@@ -48,23 +48,23 @@ impl<'de, 'a> Deserializer<'de> for &'a mut PacketDeserializer<'de> {
     }
 
     fn deserialize_i16<V>(self, visitor: V) -> Result<V::Value, Self::Error> where V: Visitor<'de> {
-        todo!()
+        read_short(self.bytes).and_then(|v| visitor.visit_i16(v))
     }
 
     fn deserialize_i32<V>(self, visitor: V) -> Result<V::Value, Self::Error> where V: Visitor<'de> {
-        todo!()
+        read_int(self.bytes).and_then(|v| visitor.visit_i32(v))
     }
 
     fn deserialize_i64<V>(self, visitor: V) -> Result<V::Value, Self::Error> where V: Visitor<'de> {
-        todo!()
+        read_long(self.bytes).and_then(|v| visitor.visit_i64(v))
     }
 
     fn deserialize_u8<V>(self, visitor: V) -> Result<V::Value, Self::Error> where V: Visitor<'de> {
-        todo!()
+        read_unsigned_byte(self.bytes).and_then(|v| visitor.visit_u8(v))
     }
 
     fn deserialize_u16<V>(self, visitor: V) -> Result<V::Value, Self::Error> where V: Visitor<'de> {
-        todo!()
+        read_unsigned_short(self.bytes).and_then(|v| visitor.visit_u16(v))
     }
 
     fn deserialize_u32<V>(self, visitor: V) -> Result<V::Value, Self::Error> where V: Visitor<'de> {
@@ -76,11 +76,11 @@ impl<'de, 'a> Deserializer<'de> for &'a mut PacketDeserializer<'de> {
     }
 
     fn deserialize_f32<V>(self, visitor: V) -> Result<V::Value, Self::Error> where V: Visitor<'de> {
-        todo!()
+        read_float(self.bytes).and_then(|v| visitor.visit_f32(v))
     }
 
     fn deserialize_f64<V>(self, visitor: V) -> Result<V::Value, Self::Error> where V: Visitor<'de> {
-        todo!()
+        read_double(self.bytes).and_then(|v| visitor.visit_f64(v))
     }
 
     fn deserialize_char<V>(self, visitor: V) -> Result<V::Value, Self::Error> where V: Visitor<'de> {
@@ -92,7 +92,7 @@ impl<'de, 'a> Deserializer<'de> for &'a mut PacketDeserializer<'de> {
     }
 
     fn deserialize_string<V>(self, visitor: V) -> Result<V::Value, Self::Error> where V: Visitor<'de> {
-        todo!()
+        read_string(self.bytes).and_then(|v| visitor.visit_string(v))
     }
 
     fn deserialize_bytes<V>(self, visitor: V) -> Result<V::Value, Self::Error> where V: Visitor<'de> {
