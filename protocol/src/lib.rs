@@ -2,6 +2,7 @@ mod deserializer;
 mod error;
 
 use std::io;
+use std::ops::Index;
 use bytes::{Buf, BytesMut};
 use tokio_util::codec::Decoder;
 use crate::error::ProtocolError;
@@ -71,6 +72,44 @@ fn read_varlong(src: &mut BytesMut) -> Result<i64, ProtocolError> {
 fn read_bool(src: &mut BytesMut) -> Result<bool, ProtocolError> {
 
     Ok(src.get_u8() == 1)
+}
+
+fn read_byte(src: &mut BytesMut) -> Result<i8, ProtocolError> {
+    Ok(src.get_i8())
+}
+
+fn read_unsigned_byte(src: &mut BytesMut) -> Result<u8, ProtocolError> {
+    Ok(src.get_u8())
+}
+
+fn read_short(src: &mut BytesMut) -> Result<i16, ProtocolError> {
+    Ok(src.get_i16())
+}
+
+fn read_unsigned_short(src: &mut BytesMut) -> Result<u16, ProtocolError> {
+    Ok(src.get_u16())
+}
+
+fn read_int(src: &mut BytesMut) -> Result<i32, ProtocolError> {
+    Ok(src.get_i32())
+}
+
+fn read_long(src: &mut BytesMut) -> Result<i64, ProtocolError> {
+    Ok(src.get_i64())
+}
+
+fn read_float(src: &mut BytesMut) -> Result<f32, ProtocolError> {
+    Ok(src.get_f32())
+}
+
+fn read_double(src: &mut BytesMut) -> Result<f64, ProtocolError> {
+    Ok(src.get_f64())
+}
+
+fn read_string(src: &mut BytesMut) -> Result<String, ProtocolError> {
+    let length = read_varint(src)? as usize;
+    let chars = src.index(..length);
+    Ok(String::from_utf8_lossy(chars).into())
 }
 
 fn read_position(src: &mut BytesMut) -> Result<Position, ProtocolError> {
