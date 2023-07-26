@@ -73,6 +73,10 @@ fn read_varlong(src: &mut BytesMut) -> Result<i64, MinecraftCodecError> {
     Ok(value)
 }
 
+fn read_bool(src: &mut BytesMut) -> Result<bool, MinecraftCodecError> {
+    Ok(src.get_u8() == 1)
+}
+
 fn read_position(src: &mut BytesMut) -> Result<Position, MinecraftCodecError> {
     let coordinates = src.get_u64();
 
