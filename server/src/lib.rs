@@ -1,4 +1,3 @@
-use std::io::Error;
 use std::net::SocketAddr;
 use thiserror::Error;
 use tokio::io::AsyncWriteExt;
@@ -8,26 +7,13 @@ use tokio::spawn;
 #[derive(Error, Debug)]
 pub enum ServerError {
     #[error("internal error: {0}")]
-    InternalError(tokio::io::Error),
-
-}
-
-impl From<tokio::io::Error> for ServerError {
-    fn from(error: Error) -> Self {
-        Self::InternalError(error)
-    }
+    InternalError(#[from] tokio::io::Error),
 }
 
 #[derive(Error, Debug)]
 pub enum ClientError {
     #[error("internal error: {0}")]
-    InternalError(tokio::io::Error),
-}
-
-impl From<tokio::io::Error> for ClientError {
-    fn from(error: Error) -> Self {
-        Self::InternalError(error)
-    }
+    InternalError(#[from] tokio::io::Error),
 }
 
 async fn handle_client(mut socket: TcpStream, _addr: SocketAddr) -> Result<(), ClientError> {
