@@ -1,3 +1,5 @@
+mod deserializer;
+
 use std::io;
 use bytes::{Buf, BytesMut};
 use thiserror::Error;
@@ -9,7 +11,7 @@ impl Decoder for MinecraftCodec {
     type Item = ();
     type Error = MinecraftCodecError;
 
-    fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
+    fn decode(&mut self, _src: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
         todo!()
     }
 }
@@ -26,8 +28,6 @@ struct Angle(u8);
 enum MinecraftCodecError {
     #[error("io Error: {0}")]
     Io(#[from] io::Error),
-    #[error("Custom error: {0}")]
-    Custom(String),
 }
 
 const SEGMENT_BIT: u8 = 0x7F;
@@ -47,7 +47,11 @@ fn read_varint(src: &mut BytesMut) -> Result<i32, MinecraftCodecError> {
         position += 7;
 
         if position >= 32 {
-            return Err(MinecraftCodecError::Custom("VarInt is longer the 32 bits".to_string()));
+            return Err(
+                MinecraftCodecError::Io(
+                    io::Error::new(io::ErrorKind::InvalidData, "varint is longer than 32 bits")
+                )
+            );
         }
     }
 
@@ -66,7 +70,11 @@ fn read_varlong(src: &mut BytesMut) -> Result<i64, MinecraftCodecError> {
 
         position += 7;
         if position >= 64 {
-            return Err(MinecraftCodecError::Custom("VarLong is longer then 64 bits".to_string()));
+            return Err(
+                MinecraftCodecError::Io(
+                    io::Error::new(io::ErrorKind::InvalidData, "varlong is longer than 64 bits")
+                )
+            );
         }
     }
 
