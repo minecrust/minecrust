@@ -1,15 +1,16 @@
 mod deserializer;
+mod error;
 
 use std::io;
 use bytes::{Buf, BytesMut};
-use thiserror::Error;
 use tokio_util::codec::Decoder;
+use crate::error::ProtocolError;
 
 struct MinecraftCodec;
 
 impl Decoder for MinecraftCodec {
     type Item = ();
-    type Error = MinecraftCodecError;
+    type Error = ProtocolError;
 
     fn decode(&mut self, _src: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
         todo!()
@@ -24,16 +25,10 @@ struct Position {
 
 struct Angle(u8);
 
-#[derive(Debug, Error)]
-enum MinecraftCodecError {
-    #[error("io Error: {0}")]
-    Io(#[from] io::Error),
-}
-
 const SEGMENT_BIT: u8 = 0x7F;
 const CONTINUE_BIT: u8 = 0x80;
 
-fn read_varint(src: &mut BytesMut) -> Result<i32, MinecraftCodecError> {
+fn read_varint(src: &mut BytesMut) -> Result<i32, ProtocolError> {
     let mut value: i32 = 0;
     let mut position: i32 = 0;
 
@@ -47,18 +42,14 @@ fn read_varint(src: &mut BytesMut) -> Result<i32, MinecraftCodecError> {
         position += 7;
 
         if position >= 32 {
-            return Err(
-                MinecraftCodecError::Io(
-                    io::Error::new(io::ErrorKind::InvalidData, "varint is longer than 32 bits")
-                )
-            );
+            return Err(io::Error::new(io::ErrorKind::InvalidData, "varint is longer than 32 bits").into());
         }
     }
 
     Ok(value)
 }
 
-fn read_varlong(src: &mut BytesMut) -> Result<i64, MinecraftCodecError> {
+fn read_varlong(src: &mut BytesMut) -> Result<i64, ProtocolError> {
     let mut value = 0;
     let mut position: u8 = 0;
 
@@ -70,22 +61,19 @@ fn read_varlong(src: &mut BytesMut) -> Result<i64, MinecraftCodecError> {
 
         position += 7;
         if position >= 64 {
-            return Err(
-                MinecraftCodecError::Io(
-                    io::Error::new(io::ErrorKind::InvalidData, "varlong is longer than 64 bits")
-                )
-            );
+            return Err(io::Error::new(io::ErrorKind::InvalidData, "varlong is longer than 64 bits").into());
         }
     }
 
     Ok(value)
 }
 
-fn read_bool(src: &mut BytesMut) -> Result<bool, MinecraftCodecError> {
+fn read_bool(src: &mut BytesMut) -> Result<bool, ProtocolError> {
+
     Ok(src.get_u8() == 1)
 }
 
-fn read_position(src: &mut BytesMut) -> Result<Position, MinecraftCodecError> {
+fn read_position(src: &mut BytesMut) -> Result<Position, ProtocolError> {
     let coordinates = src.get_u64();
 
     let x = (coordinates >> 38) as i32;
@@ -99,7 +87,7 @@ fn read_position(src: &mut BytesMut) -> Result<Position, MinecraftCodecError> {
     })
 }
 
-fn read_angle(src: &mut BytesMut) -> Result<Angle, MinecraftCodecError> {
+fn read_angle(src: &mut BytesMut) -> Result<Angle, ProtocolError> {
     let angle = src.get_u8();
     Ok(Angle(angle))
 }
