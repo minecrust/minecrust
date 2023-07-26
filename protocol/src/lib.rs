@@ -107,7 +107,7 @@ fn read_angle(src: &mut BytesMut) -> Result<Angle, MinecraftCodecError> {
 #[cfg(test)]
 mod test {
     use bytes::{BufMut, BytesMut};
-    use crate::read_varint;
+    use crate::{read_varint, read_varlong};
 
     #[test]
     fn test_read_varint() {
@@ -179,7 +179,94 @@ mod test {
     }
 
     #[test]
-    fn test_read_varlong() {}
+    fn test_read_varlong() {
+        let mut bytes_mut = BytesMut::new();
+        // 0x00
+        bytes_mut.put_u8(0x00);
+
+        // 0x01
+        bytes_mut.put_u8(0x01);
+
+        // 0x02
+        bytes_mut.put_u8(0x02);
+
+        // 0x7f
+        bytes_mut.put_u8(0x7f);
+
+        // 0x80 0x01
+        bytes_mut.put_u8(0x80);
+        bytes_mut.put_u8(0x01);
+
+        // 0xff 0x01
+        bytes_mut.put_u8(0xff);
+        bytes_mut.put_u8(0x01);
+
+        // 0xff 0xff 0xff 0xff 0x07
+        bytes_mut.put_u8(0xff);
+        bytes_mut.put_u8(0xff);
+        bytes_mut.put_u8(0xff);
+        bytes_mut.put_u8(0xff);
+        bytes_mut.put_u8(0x07);
+
+        // 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0x7f
+        bytes_mut.put_u8(0xff);
+        bytes_mut.put_u8(0xff);
+        bytes_mut.put_u8(0xff);
+        bytes_mut.put_u8(0xff);
+        bytes_mut.put_u8(0xff);
+        bytes_mut.put_u8(0xff);
+        bytes_mut.put_u8(0xff);
+        bytes_mut.put_u8(0xff);
+        bytes_mut.put_u8(0x7f);
+
+        // 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0xff 0x01
+        bytes_mut.put_u8(0xff);
+        bytes_mut.put_u8(0xff);
+        bytes_mut.put_u8(0xff);
+        bytes_mut.put_u8(0xff);
+        bytes_mut.put_u8(0xff);
+        bytes_mut.put_u8(0xff);
+        bytes_mut.put_u8(0xff);
+        bytes_mut.put_u8(0xff);
+        bytes_mut.put_u8(0xff);
+        bytes_mut.put_u8(0x01);
+
+        // 0x80 0x80 0x80 0x80 0xf8 0xff 0xff 0xff 0xff 0x01
+        bytes_mut.put_u8(0x80);
+        bytes_mut.put_u8(0x80);
+        bytes_mut.put_u8(0x80);
+        bytes_mut.put_u8(0x80);
+        bytes_mut.put_u8(0xf8);
+        bytes_mut.put_u8(0xff);
+        bytes_mut.put_u8(0xff);
+        bytes_mut.put_u8(0xff);
+        bytes_mut.put_u8(0xff);
+        bytes_mut.put_u8(0x01);
+
+        // 0x80 0x80 0x80 0x80 0x80 0x80 0x80 0x80 0x80 0x01
+        bytes_mut.put_u8(0x80);
+        bytes_mut.put_u8(0x80);
+        bytes_mut.put_u8(0x80);
+        bytes_mut.put_u8(0x80);
+        bytes_mut.put_u8(0x80);
+        bytes_mut.put_u8(0x80);
+        bytes_mut.put_u8(0x80);
+        bytes_mut.put_u8(0x80);
+        bytes_mut.put_u8(0x80);
+        bytes_mut.put_u8(0x01);
+
+        assert_eq!(0, read_varlong(&mut bytes_mut).unwrap());
+        assert_eq!(1, read_varlong(&mut bytes_mut).unwrap());
+        assert_eq!(2, read_varlong(&mut bytes_mut).unwrap());
+        assert_eq!(127, read_varlong(&mut bytes_mut).unwrap());
+        assert_eq!(128, read_varlong(&mut bytes_mut).unwrap());
+        assert_eq!(255, read_varlong(&mut bytes_mut).unwrap());
+        assert_eq!(2147483647, read_varlong(&mut bytes_mut).unwrap());
+        assert_eq!(9223372036854775807, read_varlong(&mut bytes_mut).unwrap());
+        assert_eq!(-1, read_varlong(&mut bytes_mut).unwrap());
+        assert_eq!(-2147483648, read_varlong(&mut bytes_mut).unwrap());
+        assert_eq!(-9223372036854775808, read_varlong(&mut bytes_mut).unwrap());
+    }
 }
 
 
