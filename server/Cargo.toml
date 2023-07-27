@@ -4,6 +4,9 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+protocol = { path = "../protocol" }
 tokio = { version = "1.29.1", features = ["net", "io-util", "rt-multi-thread"] }
+tokio-util = { version = "0.7.8", features = [] }
+futures-util = { version = "0.3.28" }
 thiserror = "1.0.43"
 log = "0.4.19"

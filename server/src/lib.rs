@@ -1,8 +1,10 @@
 use std::net::SocketAddr;
+use futures_util::StreamExt;
 use thiserror::Error;
-use tokio::io::AsyncWriteExt;
 use tokio::net::{TcpListener, TcpStream, ToSocketAddrs};
 use tokio::spawn;
+use tokio_util::codec::FramedRead;
+use protocol::MinecraftCodec;
 
 #[derive(Error, Debug)]
 pub enum ServerError {
@@ -16,9 +18,12 @@ pub enum ClientError {
     InternalError(#[from] tokio::io::Error),
 }
 
-async fn handle_client(mut socket: TcpStream, _addr: SocketAddr) -> Result<(), ClientError> {
-    socket.flush().await?;
-    socket.shutdown().await?;
+async fn handle_client(socket: TcpStream, _addr: SocketAddr) -> Result<(), ClientError> {
+    let (read, _write) = socket.into_split();
+    let mut reader = FramedRead::new(read, MinecraftCodec::new());
+
+    while let Some(Ok(_)) = reader.next().await {}
+
     Ok(())
 }
 
