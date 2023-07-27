@@ -1,20 +1,86 @@
 mod deserializer;
 mod error;
 
+use std::fmt::{Formatter, Write};
 use std::io;
 use std::ops::Index;
 use bytes::{Buf, BytesMut};
+use serde::{Deserialize, Deserializer};
+use serde::de::{Error, Visitor};
 use tokio_util::codec::Decoder;
 use crate::error::ProtocolError;
 
-struct MinecraftCodec;
+pub struct MinecraftCodec {}
+
+impl MinecraftCodec {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
 
 impl Decoder for MinecraftCodec {
     type Item = ();
     type Error = ProtocolError;
 
-    fn decode(&mut self, _src: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
-        todo!()
+    fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
+        if src.is_empty() {
+            return Ok(None);
+        }
+
+        let (packet_length, consumed_bytes) = read_varint_without_cursor(src)?;
+
+        if src.len() - consumed_bytes < packet_length as usize {
+            src.reserve(packet_length as usize + consumed_bytes - src.len());
+            return Ok(None);
+        }
+
+        src.advance(consumed_bytes);
+        let mut packet_with_id = src.split_to(packet_length as usize);
+
+        let packet_id = read_varint(&mut packet_with_id)?;
+        log::debug!("packet id: {}", packet_id);
+
+        Ok(Some(()))
+    }
+}
+
+struct VarInt(i32);
+
+impl<'de> Deserialize<'de> for VarInt {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where D: Deserializer<'de> {
+        struct VarIntVisitor;
+        impl<'de> Visitor<'de> for VarIntVisitor {
+            type Value = VarInt;
+
+            fn expecting(&self, formatter: &mut Formatter) -> std::fmt::Result {
+                formatter.write_str("varint")
+            }
+
+            fn visit_i32<E>(self, v: i32) -> Result<Self::Value, E> where E: Error {
+                Ok(VarInt(v))
+            }
+        }
+        deserializer.deserialize_newtype_struct("MC_VARINT", VarIntVisitor)
+    }
+}
+
+struct VarLong(i64);
+
+impl<'de> Deserialize<'de> for VarLong {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where D: Deserializer<'de> {
+        struct VarLongVisitor;
+        impl<'de> Visitor<'de> for VarLongVisitor {
+            type Value = VarLong;
+
+            fn expecting(&self, formatter: &mut Formatter) -> std::fmt::Result {
+                formatter.write_str("varlong")
+            }
+
+            fn visit_i64<E>(self, v: i64) -> Result<Self::Value, E> where E: Error {
+                Ok(VarLong(v))
+            }
+        }
+        deserializer.deserialize_newtype_struct("MC_VARLONG", VarLongVisitor)
     }
 }
 
@@ -29,10 +95,35 @@ struct Angle(u8);
 const SEGMENT_BIT: u8 = 0x7F;
 const CONTINUE_BIT: u8 = 0x80;
 
+fn read_varint_without_cursor(src: &mut BytesMut) -> Result<(i32, usize), ProtocolError> {
+    let mut value: i32 = 0;
+    let mut position: i32 = 0;
+    let mut consumed_bytes: usize = 0;
+
+    loop {
+        let current_byte = src.get(consumed_bytes)
+            .ok_or::<ProtocolError>(
+                io::Error::new(io::ErrorKind::InvalidData, "not enough bytes to read varint").into()
+            )?;
+        consumed_bytes += 1;
+
+        value |= ((current_byte & SEGMENT_BIT) as i32) << position;
+
+        if (current_byte & CONTINUE_BIT) == 0 { break; }
+
+        position += 7;
+
+        if position >= 32 {
+            return Err(io::Error::new(io::ErrorKind::InvalidData, "varint is longer than 32 bits").into());
+        }
+    }
+
+    Ok((value, consumed_bytes))
+}
+
 fn read_varint(src: &mut BytesMut) -> Result<i32, ProtocolError> {
     let mut value: i32 = 0;
     let mut position: i32 = 0;
-
 
     loop {
         let current_byte = src.get_u8();
@@ -70,7 +161,6 @@ fn read_varlong(src: &mut BytesMut) -> Result<i64, ProtocolError> {
 }
 
 fn read_bool(src: &mut BytesMut) -> Result<bool, ProtocolError> {
-
     Ok(src.get_u8() == 1)
 }
 

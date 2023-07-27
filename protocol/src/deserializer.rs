@@ -3,7 +3,7 @@ use bytes::{Buf, BytesMut};
 use serde::{Deserialize, Deserializer};
 use serde::de::Visitor;
 use crate::error::ProtocolError;
-use crate::{read_bool, read_byte, read_double, read_float, read_int, read_long, read_short, read_string, read_unsigned_byte, read_unsigned_short};
+use crate::{read_bool, read_byte, read_double, read_float, read_int, read_long, read_short, read_string, read_unsigned_byte, read_unsigned_short, read_varint, read_varlong};
 
 impl serde::de::Error for ProtocolError {
     fn custom<T>(msg: T) -> Self where T: Display {
@@ -35,7 +35,7 @@ pub fn from_bytes_mut<'a, T>(bytes: &'a mut BytesMut) -> Result<T, ProtocolError
 impl<'de, 'a> Deserializer<'de> for &'a mut PacketDeserializer<'de> {
     type Error = ProtocolError;
 
-    fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Self::Error> where V: Visitor<'de> {
+    fn deserialize_any<V>(self, _visitor: V) -> Result<V::Value, Self::Error> where V: Visitor<'de> {
         unimplemented!()
     }
 
@@ -67,12 +67,12 @@ impl<'de, 'a> Deserializer<'de> for &'a mut PacketDeserializer<'de> {
         read_unsigned_short(self.bytes).and_then(|v| visitor.visit_u16(v))
     }
 
-    fn deserialize_u32<V>(self, visitor: V) -> Result<V::Value, Self::Error> where V: Visitor<'de> {
-        todo!()
+    fn deserialize_u32<V>(self, _visitor: V) -> Result<V::Value, Self::Error> where V: Visitor<'de> {
+        Err(ProtocolError::UnsupportedType("u32"))
     }
 
-    fn deserialize_u64<V>(self, visitor: V) -> Result<V::Value, Self::Error> where V: Visitor<'de> {
-        todo!()
+    fn deserialize_u64<V>(self, _visitor: V) -> Result<V::Value, Self::Error> where V: Visitor<'de> {
+        Err(ProtocolError::UnsupportedType("u64"))
     }
 
     fn deserialize_f32<V>(self, visitor: V) -> Result<V::Value, Self::Error> where V: Visitor<'de> {
@@ -83,71 +83,81 @@ impl<'de, 'a> Deserializer<'de> for &'a mut PacketDeserializer<'de> {
         read_double(self.bytes).and_then(|v| visitor.visit_f64(v))
     }
 
-    fn deserialize_char<V>(self, visitor: V) -> Result<V::Value, Self::Error> where V: Visitor<'de> {
-        todo!()
+    fn deserialize_char<V>(self, _visitor: V) -> Result<V::Value, Self::Error> where V: Visitor<'de> {
+        Err(ProtocolError::UnsupportedType("char"))
     }
 
-    fn deserialize_str<V>(self, visitor: V) -> Result<V::Value, Self::Error> where V: Visitor<'de> {
-        todo!()
+    fn deserialize_str<V>(self, _visitor: V) -> Result<V::Value, Self::Error> where V: Visitor<'de> {
+        Err(ProtocolError::UnsupportedType("str"))
     }
 
     fn deserialize_string<V>(self, visitor: V) -> Result<V::Value, Self::Error> where V: Visitor<'de> {
         read_string(self.bytes).and_then(|v| visitor.visit_string(v))
     }
 
-    fn deserialize_bytes<V>(self, visitor: V) -> Result<V::Value, Self::Error> where V: Visitor<'de> {
+    fn deserialize_bytes<V>(self, _visitor: V) -> Result<V::Value, Self::Error> where V: Visitor<'de> {
+        Err(ProtocolError::UnsupportedType("bytes"))
+    }
+
+    fn deserialize_byte_buf<V>(self, _visitor: V) -> Result<V::Value, Self::Error> where V: Visitor<'de> {
+        Err(ProtocolError::UnsupportedType("str"))
+    }
+
+    fn deserialize_option<V>(self, _visitor: V) -> Result<V::Value, Self::Error> where V: Visitor<'de> {
         todo!()
     }
 
-    fn deserialize_byte_buf<V>(self, visitor: V) -> Result<V::Value, Self::Error> where V: Visitor<'de> {
-        todo!()
+    fn deserialize_unit<V>(self, _visitor: V) -> Result<V::Value, Self::Error> where V: Visitor<'de> {
+        Err(ProtocolError::UnsupportedType("unit"))
     }
 
-    fn deserialize_option<V>(self, visitor: V) -> Result<V::Value, Self::Error> where V: Visitor<'de> {
-        todo!()
-    }
-
-    fn deserialize_unit<V>(self, visitor: V) -> Result<V::Value, Self::Error> where V: Visitor<'de> {
-        todo!()
-    }
-
-    fn deserialize_unit_struct<V>(self, name: &'static str, visitor: V) -> Result<V::Value, Self::Error> where V: Visitor<'de> {
-        todo!()
+    fn deserialize_unit_struct<V>(self, _name: &'static str, _visitor: V) -> Result<V::Value, Self::Error> where V: Visitor<'de> {
+        Err(ProtocolError::UnsupportedType("unit struct"))
     }
 
     fn deserialize_newtype_struct<V>(self, name: &'static str, visitor: V) -> Result<V::Value, Self::Error> where V: Visitor<'de> {
+        match name {
+            "MC_VARINT" => {
+                read_varint(self.bytes).and_then(|v| visitor.visit_i32(v))
+            }
+            "MC_VARLONG" => {
+                read_varlong(self.bytes).and_then(|v| visitor.visit_i64(v))
+            }
+            _ => {
+                Err(ProtocolError::UnsupportedType(name))
+            }
+        }
+    }
+
+    fn deserialize_seq<V>(self, _visitor: V) -> Result<V::Value, Self::Error> where V: Visitor<'de> {
+        Err(ProtocolError::UnsupportedType("seq"))
+    }
+
+    fn deserialize_tuple<V>(self, _len: usize, _visitor: V) -> Result<V::Value, Self::Error> where V: Visitor<'de> {
         todo!()
     }
 
-    fn deserialize_seq<V>(self, visitor: V) -> Result<V::Value, Self::Error> where V: Visitor<'de> {
-        todo!()
+    fn deserialize_tuple_struct<V>(self, _name: &'static str, _len: usize, _visitor: V) -> Result<V::Value, Self::Error> where V: Visitor<'de> {
+        Err(ProtocolError::UnsupportedType("tuple struct"))
     }
 
-    fn deserialize_tuple<V>(self, len: usize, visitor: V) -> Result<V::Value, Self::Error> where V: Visitor<'de> {
-        todo!()
+    fn deserialize_map<V>(self, _visitor: V) -> Result<V::Value, Self::Error> where V: Visitor<'de> {
+        Err(ProtocolError::UnsupportedType("map"))
     }
 
-    fn deserialize_tuple_struct<V>(self, name: &'static str, len: usize, visitor: V) -> Result<V::Value, Self::Error> where V: Visitor<'de> {
-        todo!()
+    fn deserialize_struct<V>(self, _name: &'static str, _fields: &'static [&'static str], _visitor: V) -> Result<V::Value, Self::Error> where V: Visitor<'de> {
+        Err(ProtocolError::UnsupportedType("struct"))
     }
 
-    fn deserialize_map<V>(self, visitor: V) -> Result<V::Value, Self::Error> where V: Visitor<'de> {
-        todo!()
+    fn deserialize_enum<V>(self, _name: &'static str, _variants: &'static [&'static str], _visitor: V) -> Result<V::Value, Self::Error> where V: Visitor<'de> {
+        Err(ProtocolError::UnsupportedType("enum"))
     }
 
-    fn deserialize_struct<V>(self, name: &'static str, fields: &'static [&'static str], visitor: V) -> Result<V::Value, Self::Error> where V: Visitor<'de> {
-        todo!()
+    fn deserialize_identifier<V>(self, _visitor: V) -> Result<V::Value, Self::Error> where V: Visitor<'de> {
+        Err(ProtocolError::UnsupportedType("identifier"))
     }
 
-    fn deserialize_enum<V>(self, name: &'static str, variants: &'static [&'static str], visitor: V) -> Result<V::Value, Self::Error> where V: Visitor<'de> {
-        todo!()
-    }
-
-    fn deserialize_identifier<V>(self, visitor: V) -> Result<V::Value, Self::Error> where V: Visitor<'de> {
-        todo!()
-    }
-
-    fn deserialize_ignored_any<V>(self, visitor: V) -> Result<V::Value, Self::Error> where V: Visitor<'de> {
-        todo!()
+    fn deserialize_ignored_any<V>(self, _visitor: V) -> Result<V::Value, Self::Error> where V: Visitor<'de> {
+        Err(ProtocolError::UnsupportedType("ignored any"))
     }
 }
